@@ -40,7 +40,7 @@ jobs:
         
       - name: Build project
         env:
-          VITE_GOOGLE_APP_SCRIPT_URL: ${{ secrets.VITE_GOOGLE_APP_SCRIPT_URL }}
+          VITE_GOOGLE_APP_SCRIPT_URL: https://script.google.com/macros/s/AKfycbwYNZufAdxwLKWfaXaLXaqwVXSDYaDAaNHuITme46AjxgpXCHRPepxsou1sYE7RyAYN/exec
         run: npm run build
         
       - name: Setup Pages
