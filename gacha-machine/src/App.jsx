@@ -96,18 +96,15 @@ function App() {
       let assignedTeam = '?';
       
       if (scriptUrl) {
-        const response = await fetch(scriptUrl, {
-          method: 'POST',
-          body: JSON.stringify({
-            className: formData.className,
-            seatNumber: formData.seatNumber,
-            studentName: formData.studentName,
-            color: randomEmotion.color
-          }),
-          headers: {
-            'Content-Type': 'text/plain;charset=utf-8',
-          }
-        });
+        const queryParams = new URLSearchParams({
+          action: 'draw',
+          className: formData.className,
+          seatNumber: formData.seatNumber,
+          studentName: formData.studentName,
+          color: randomEmotion.color
+        }).toString();
+        
+        const response = await fetch(`${scriptUrl}?${queryParams}`);
         
         const data = await response.json();
         if (data.status === 'success') {
@@ -137,7 +134,7 @@ function App() {
 
     } catch (err) {
       console.error(err);
-      setError('網路錯誤，請稍後再試！');
+      setError('錯誤: ' + (err.message || '網路錯誤'));
     } finally {
       setIsDrawing(false);
     }
@@ -160,14 +157,12 @@ function App() {
     
     try {
       if (scriptUrl) {
-        const response = await fetch(scriptUrl, {
-          method: 'POST',
-          body: JSON.stringify({
-            action: 'reset',
-            className: adminTargetClass
-          }),
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' }
-        });
+        const queryParams = new URLSearchParams({
+          action: 'reset',
+          className: adminTargetClass
+        }).toString();
+        
+        const response = await fetch(`${scriptUrl}?${queryParams}`);
         const data = await response.json();
         if (data.status === 'success') {
           alert(`已成功重置 ${adminTargetClass} 班級資料！`);

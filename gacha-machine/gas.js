@@ -1,27 +1,33 @@
-function doPost(e) {
-  try {
-    var params = JSON.parse(e.postData.contents);
-    var className = params.className;
-    var action = params.action; // "reset" 或者是一般抽籤
+function processRequest(params) {
+  var className = params.className;
+  var action = params.action;
 
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
-    var sheetName = className || "未分班";
-    var sheet = ss.getSheetByName(sheetName);
+  if (!className) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: "error",
+      message: "Missing className parameter"
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
 
-    if (action === "reset") {
-      if (sheet) {
-        // 清除除了標題列以外的所有資料
-        var lastRow = sheet.getLastRow();
-        if (lastRow > 1) {
-          sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).clearContent();
-        }
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheetName = className;
+  var sheet = ss.getSheetByName(sheetName);
+
+  if (action === "reset") {
+    if (sheet) {
+      // 清除除了標題列以外的所有資料
+      var lastRow = sheet.getLastRow();
+      if (lastRow > 1) {
+        sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).clearContent();
       }
-      return ContentService.createTextOutput(JSON.stringify({
-        status: "success",
-        message: "已重置 " + className + " 班級的資料"
-      })).setMimeType(ContentService.MimeType.JSON);
     }
+    return ContentService.createTextOutput(JSON.stringify({
+      status: "success",
+      message: "已重置 " + className + " 班級的資料"
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
 
+  if (action === "draw") {
     var seatNumber = params.seatNumber;
     var studentName = params.studentName;
     var color = params.color;
@@ -62,7 +68,6 @@ function doPost(e) {
       var rowColor = String(row[3]);
       var rowTeam = parseInt(row[4], 10);
 
-      // 不需要再判斷 rowClass === className，因為這整張表就是這個班級的
       if (teamStats[rowTeam]) {
         teamStats[rowTeam].total += 1;
         if (rowColor === String(color)) {
@@ -96,7 +101,39 @@ function doPost(e) {
       status: "success",
       team: bestTeam
     })).setMimeType(ContentService.MimeType.JSON);
+  }
 
+  // 預設行為：讀取特定班級分組狀況
+  if (!sheet) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: "success",
+      data: []
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  var data = sheet.getDataRange().getValues();
+  var result = [];
+
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    result.push({
+      seatNumber: row[1],
+      studentName: row[2],
+      color: row[3],
+      team: parseInt(row[4], 10)
+    });
+  }
+
+  return ContentService.createTextOutput(JSON.stringify({
+    status: "success",
+    data: result
+  })).setMimeType(ContentService.MimeType.JSON);
+}
+
+function doPost(e) {
+  try {
+    var params = JSON.parse(e.postData.contents);
+    return processRequest(params);
   } catch (error) {
     return ContentService.createTextOutput(JSON.stringify({
       status: "error",
@@ -105,48 +142,9 @@ function doPost(e) {
   }
 }
 
-// 提供前端讀取特定班級分組狀況的 API
 function doGet(e) {
   try {
-    var className = e.parameter.className;
-    if (!className) {
-      return ContentService.createTextOutput(JSON.stringify({
-        status: "error",
-        message: "Missing className parameter"
-      })).setMimeType(ContentService.MimeType.JSON);
-    }
-
-    var sheetName = className;
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
-    var sheet = ss.getSheetByName(sheetName);
-
-    // 如果工作表不存在，回傳空陣列
-    if (!sheet) {
-      return ContentService.createTextOutput(JSON.stringify({
-        status: "success",
-        data: []
-      })).setMimeType(ContentService.MimeType.JSON);
-    }
-
-    var data = sheet.getDataRange().getValues();
-    var result = [];
-
-    // data[0] 是標題列 ["班級", "座號", "姓名", "情緒角色顏色", "組別"]
-    for (var i = 1; i < data.length; i++) {
-      var row = data[i];
-      result.push({
-        seatNumber: row[1],
-        studentName: row[2],
-        color: row[3],
-        team: parseInt(row[4], 10)
-      });
-    }
-
-    return ContentService.createTextOutput(JSON.stringify({
-      status: "success",
-      data: result
-    })).setMimeType(ContentService.MimeType.JSON);
-
+    return processRequest(e.parameter);
   } catch (error) {
     return ContentService.createTextOutput(JSON.stringify({
       status: "error",
