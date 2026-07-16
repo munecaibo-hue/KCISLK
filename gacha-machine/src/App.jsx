@@ -38,6 +38,8 @@ function App() {
   }, [formData.className]);
 
   const fetchGroupingStatus = async (className) => {
+    setCurrentViewClass(className); // 立即更新標題，避免不同步
+    
     const scriptUrl = import.meta.env.VITE_GOOGLE_APP_SCRIPT_URL;
     if (!scriptUrl) {
       // 如果還沒設定 GAS 網址，提供本機測試用的假資料
@@ -48,17 +50,16 @@ function App() {
         { seatNumber: "4", studentName: "林阿德", color: "紫色", team: 2 },
         { seatNumber: "5", studentName: "張大頭", color: "綠色", team: 3 },
       ]);
-      setCurrentViewClass(className);
       return;
     }
 
     setIsLoadingStatus(true);
+    setGroupingData([]); // 取得新資料前先清空舊的，避免混淆
     try {
       const response = await fetch(`${scriptUrl}?className=${className}`);
       const data = await response.json();
       if (data.status === 'success') {
         setGroupingData(data.data);
-        setCurrentViewClass(className);
       }
     } catch (err) {
       console.error("Error fetching status:", err);
