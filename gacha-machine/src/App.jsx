@@ -10,6 +10,39 @@ const EMOTIONS = [
   { id: 'disgust', name: '厭厭', color: '綠色', className: 'bg-disgust', textClass: 'text-disgust' }
 ];
 
+// 使用 JSONP 繞過所有瀏覽器的 CORS 阻擋 (特別是多帳號或 Safari 的跳轉問題)
+function jsonpFetch(url, params) {
+  return new Promise((resolve, reject) => {
+    const callbackName = 'jsonp_callback_' + Math.round(1000000 * Math.random());
+    
+    const timeout = setTimeout(() => {
+      delete window[callbackName];
+      document.body.removeChild(script);
+      reject(new Error('JSONP Timeout - Please make sure gas.js is updated with JSONP support.'));
+    }, 15000);
+
+    window[callbackName] = function(data) {
+      clearTimeout(timeout);
+      delete window[callbackName];
+      document.body.removeChild(script);
+      resolve(data);
+    };
+
+    params.callback = callbackName;
+    const queryParams = new URLSearchParams(params).toString();
+    
+    const script = document.createElement('script');
+    script.src = url + (url.indexOf('?') >= 0 ? '&' : '?') + queryParams;
+    script.onerror = () => {
+      clearTimeout(timeout);
+      delete window[callbackName];
+      document.body.removeChild(script);
+      reject(new Error('JSONP Failed to load script'));
+    };
+    document.body.appendChild(script);
+  });
+}
+
 function App() {
   const [formData, setFormData] = useState({
     className: CLASSES[0],
@@ -56,10 +89,11 @@ function App() {
     setIsLoadingStatus(true);
     setGroupingData([]); // 取得新資料前先清空舊的，避免混淆
     try {
-      const response = await fetch(`${scriptUrl}?className=${className}`);
-      const data = await response.json();
-      if (data.status === 'success') {
-        setGroupingData(data.data);
+      if (scriptUrl) {
+        const response = await jsonpFetch(scriptUrl, { className });
+        if (response.status === 'success') {
+          setGroupingData(response.data);
+        }
       }
     } catch (err) {
       console.error("Error fetching status:", err);
@@ -96,17 +130,14 @@ function App() {
       let assignedTeam = '?';
       
       if (scriptUrl) {
-        const queryParams = new URLSearchParams({
+        const data = await jsonpFetch(scriptUrl, {
           action: 'draw',
           className: formData.className,
           seatNumber: formData.seatNumber,
           studentName: formData.studentName,
           color: randomEmotion.color
-        }).toString();
+        });
         
-        const response = await fetch(`${scriptUrl}?${queryParams}`);
-        
-        const data = await response.json();
         if (data.status === 'success') {
           assignedTeam = data.team;
           // 抽完後重新抓取最新名單
@@ -157,13 +188,11 @@ function App() {
     
     try {
       if (scriptUrl) {
-        const queryParams = new URLSearchParams({
+        const data = await jsonpFetch(scriptUrl, {
           action: 'reset',
           className: adminTargetClass
-        }).toString();
+        });
         
-        const response = await fetch(`${scriptUrl}?${queryParams}`);
-        const data = await response.json();
         if (data.status === 'success') {
           alert(`已成功重置 ${adminTargetClass} 班級資料！`);
           setShowAdminModal(false);

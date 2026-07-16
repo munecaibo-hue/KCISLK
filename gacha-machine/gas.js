@@ -2,11 +2,23 @@ function processRequest(params) {
   var className = params.className;
   var action = params.action;
 
+  var callback = params.callback;
+  function outputResult(obj) {
+    var jsonStr = JSON.stringify(obj);
+    if (callback) {
+      return ContentService.createTextOutput(callback + '(' + jsonStr + ')')
+        .setMimeType(ContentService.MimeType.JAVASCRIPT);
+    } else {
+      return ContentService.createTextOutput(jsonStr)
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
   if (!className) {
-    return ContentService.createTextOutput(JSON.stringify({
+    return outputResult({
       status: "error",
       message: "Missing className parameter"
-    })).setMimeType(ContentService.MimeType.JSON);
+    });
   }
 
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -15,16 +27,15 @@ function processRequest(params) {
 
   if (action === "reset") {
     if (sheet) {
-      // 清除除了標題列以外的所有資料
       var lastRow = sheet.getLastRow();
       if (lastRow > 1) {
         sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).clearContent();
       }
     }
-    return ContentService.createTextOutput(JSON.stringify({
+    return outputResult({
       status: "success",
       message: "已重置 " + className + " 班級的資料"
-    })).setMimeType(ContentService.MimeType.JSON);
+    });
   }
 
   if (action === "draw") {
@@ -32,12 +43,10 @@ function processRequest(params) {
     var studentName = params.studentName;
     var color = params.color;
 
-    // 如果工作表不存在，建立並加入標題
     if (!sheet) {
       sheet = ss.insertSheet(sheetName);
       sheet.appendRow(["班級", "座號", "姓名", "情緒角色顏色", "組別"]);
     } else {
-      // 確保第一列有抬頭 (防呆)
       var firstCell = sheet.getRange("A1").getValue();
       if (firstCell !== "班級") {
         sheet.insertRowBefore(1);
@@ -45,19 +54,16 @@ function processRequest(params) {
       }
     }
 
-    // 請在這裡設定各班的總人數，用於判斷分3隊或4隊
     var classSizes = {
       "701": 30, "702": 30, "703": 30, "704": 30,
       "7A": 28, "7B": 28, "7C": 28, "7D": 28, "7E": 28, "7F": 28
     };
 
-    var totalStudents = classSizes[className] || 30; // 找不到預設為 30
+    var totalStudents = classSizes[className] || 30;
     var numberOfTeams = totalStudents <= 28 ? 3 : 4;
 
-    // 取得目前工作表的所有資料
     var data = sheet.getDataRange().getValues();
 
-    // 統計該班級目前各組的人數與各組中該顏色的數量
     var teamStats = {};
     for (var i = 1; i <= numberOfTeams; i++) {
       teamStats[i] = { total: 0, colorCount: 0 };
@@ -76,7 +82,6 @@ function processRequest(params) {
       }
     }
 
-    // 尋找最適合的組別 (異質性分組邏輯)
     var bestTeam = 1;
     var minColorCount = Infinity;
     var minTotal = Infinity;
@@ -94,21 +99,19 @@ function processRequest(params) {
       }
     }
 
-    // 寫入資料
     sheet.appendRow([className, seatNumber, studentName, color, bestTeam]);
 
-    return ContentService.createTextOutput(JSON.stringify({
+    return outputResult({
       status: "success",
       team: bestTeam
-    })).setMimeType(ContentService.MimeType.JSON);
+    });
   }
 
-  // 預設行為：讀取特定班級分組狀況
   if (!sheet) {
-    return ContentService.createTextOutput(JSON.stringify({
+    return outputResult({
       status: "success",
       data: []
-    })).setMimeType(ContentService.MimeType.JSON);
+    });
   }
 
   var data = sheet.getDataRange().getValues();
@@ -124,10 +127,10 @@ function processRequest(params) {
     });
   }
 
-  return ContentService.createTextOutput(JSON.stringify({
+  return outputResult({
     status: "success",
     data: result
-  })).setMimeType(ContentService.MimeType.JSON);
+  });
 }
 
 function doPost(e) {
