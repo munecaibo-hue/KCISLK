@@ -18,6 +18,12 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    
+    # 由於專案在 gacha-machine 資料夾內，我們設定預設的工作目錄
+    defaults:
+      run:
+        working-directory: ./gacha-machine
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -27,6 +33,7 @@ jobs:
         with:
           node-version: 20
           cache: 'npm'
+          cache-dependency-path: './gacha-machine/package-lock.json'
           
       - name: Install dependencies
         run: npm ci || npm install
@@ -42,7 +49,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: './dist'
+          path: './gacha-machine/dist' # 必須指向打包後的資料夾
 
   deploy:
     environment:
